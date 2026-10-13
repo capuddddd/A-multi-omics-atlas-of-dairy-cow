@@ -1,5 +1,5 @@
 #' @title Cross-Modal Label Transfer & Co-Embedding Pipeline (scRNA -> scATAC)
-#' @description Performs single-cell multi-omic integration, label transfer from 
+#' @description Performs single-cell multi-omic integration, label transfer from
 #' scRNA-seq reference to scATAC-seq query, RNA data imputation, and integrated co-embedding.
 #' @author Chen Ao
 #' @date 2026-06-28
@@ -20,27 +20,27 @@ library(cowplot)
 #' @param weight_reduction Computational dimensional reduction for anchoring. Default is "lsi".
 #' @return A list containing the updated query object and calculated transfer anchors.
 run_label_transfer <- function(ref_obj, query_obj, ref_assay = "RNA", query_assay = "RNA", weight_reduction = "lsi") {
-  
+
   message("--> Finding cross-modal transfer anchors via CCA...")
   transfer_anchors <- FindTransferAnchors(
-    reference       = ref_obj, 
-    query           = query_obj, 
-    features        = VariableFeatures(object = ref_obj), 
-    reference.assay = ref_assay, 
-    query.assay     = query_assay, 
+    reference       = ref_obj,
+    query           = query_obj,
+    features        = VariableFeatures(object = ref_obj),
+    reference.assay = ref_assay,
+    query.assay     = query_assay,
     reduction       = "cca"
   )
-  
+
   message("--> Projecting reference cell type labels onto query dataset...")
   celltype_predictions <- TransferData(
-    anchorset        = transfer_anchors, 
-    refdata          = ref_obj$celltype, 
-    dims             = 1:30, 
+    anchorset        = transfer_anchors,
+    refdata          = ref_obj$celltype,
+    dims             = 1:30,
     weight.reduction = query_obj[[weight_reduction]]
   )
-  
+
   query_obj <- AddMetaData(query_obj, metadata = celltype_predictions)
-  
+
   return(list(query = query_obj, anchors = transfer_anchors))
 }
 
@@ -55,44 +55,44 @@ run_label_transfer <- function(ref_obj, query_obj, ref_assay = "RNA", query_assa
 #' @param weight_reduction Reduction slot used for anchor weights. Default is "lsi".
 #' @return An integrated co-embedded Seurat object.
 run_coembedding <- function(ref_obj, query_obj, anchors, weight_reduction = "lsi") {
-  
+
   message("--> Performing RNA data imputation using transfer anchors...")
   genes_use <- VariableFeatures(ref_obj)
   ref_data  <- GetAssayData(ref_obj, assay = "RNA", layer = "data")[genes_use, ]
-  
+
   imputation <- TransferData(
-    anchorset        = anchors, 
-    refdata          = ref_data, 
-    weight.reduction = query_obj[[weight_reduction]], 
+    anchorset        = anchors,
+    refdata          = ref_data,
+    weight.reduction = query_obj[[weight_reduction]],
     dims             = 1:30
   )
-  
+
   # Isolate imputed matrix inside an independent slot to prevent baseline RNA corruption
   query_obj[["ImputedRNA"]] <- CreateAssayObject(data = imputation)
   DefaultAssay(query_obj)   <- "ImputedRNA"
-  
+
   # Subset features to ensure uniform dimensional structural merging
   ref_sub   <- subset(ref_obj, features = genes_use)
   query_sub <- subset(query_obj, features = genes_use)
-  
+
   message("--> Merging cross-modal layers and executing dimension reduction...")
   coembed <- merge(x = ref_sub, y = query_sub)
-  
+
   # Unified celltype mapping (Prioritize ground-truth; fall back to predictions)
   coembed$celltype <- ifelse(!is.na(coembed$celltype), coembed$celltype, coembed$predicted.id)
-  
+
   # Define technical modalities based on cohort metadata patterns
   coembed$tech <- case_when(
     coembed$sample %in% c("MT007D","MT790D","MT986D","MT007L","MT790L","MT986L") ~ "scRNA",
     coembed$sample %in% c("MA007D","MA790D","MA986D","MA007L","MA790L","MA986L") ~ "scATAC",
     TRUE ~ "Unknown"
   )
-  
+
   # Standard downstream reduction for co-embedding visualization
   coembed <- ScaleData(coembed, features = genes_use, do.scale = FALSE, verbose = FALSE)
   coembed <- RunPCA(coembed, features = genes_use, verbose = FALSE)
   coembed <- RunUMAP(coembed, dims = 1:30, verbose = FALSE)
-  
+
   return(coembed)
 }
 
@@ -101,8 +101,12 @@ run_coembedding <- function(ref_obj, query_obj, anchors, weight_reduction = "lsi
 # ==========================================
 
 # File path allocations
-REF_PATH   <- "/public/home/99017/02users/caaaaa/00scRNA/Result_UCD1.3/Mammary_gland/final_rds/merge.rds"
-QUERY_PATH <- "/public/home/99017/02users/07ca/00scRNA/Result_UCD1.3/Liver/0607/0722_readj/quality/final.rds"
+REF_PATH   <- Sys.getenv("ATLAS_RNA_REFERENCE")
+QUERY_PATH <- Sys.getenv("ATLAS_ATAC_QUERY")
+
+if (!file.exists(REF_PATH) || !file.exists(QUERY_PATH)) {
+  stop("Set ATLAS_RNA_REFERENCE and ATLAS_ATAC_QUERY to existing RDS files.")
+}
 
 scrna <- readRDS(REF_PATH)
 sc    <- readRDS(QUERY_PATH)
@@ -136,9 +140,9 @@ ggsave("umap_atac_rna_coembed.pdf", coembed_plot, width = 15, height = 7, dpi = 
 if (!all(is.na(sc$celltype))) {
   predictions <- table(sc$celltype, sc$predicted.id)
   predictions <- as.data.frame(predictions / rowSums(predictions))
-  
-  p_heat <- ggplot(predictions, aes(Var1, Var2, fill = Freq)) + 
-    geom_tile(color = "white") + 
+
+  p_heat <- ggplot(predictions, aes(Var1, Var2, fill = Freq)) +
+    geom_tile(color = "white") +
     scale_fill_gradientn(name = "Fraction of cells", colors = c("#ffffc8", "#f7a583", "#7d0025")) +
     labs(x = "Cell type annotation (RNA)", y = "Predicted cell type label (ATAC)") +
     theme_cowplot() +

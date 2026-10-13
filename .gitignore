@@ -1,0 +1,22 @@
+# Local data, outputs and credentials
+/data/
+/results/
+/scenicplus_output/
+.env
+.env.*
+!.env.example
+*.rds
+*.h5
+*.h5ad
+*.pkl
+*.loom
+*.feather
+*.tsv.gz
+*.tsv.gz.tbi
+__pycache__/
+*.py[cod]
+.Rhistory
+.RData
+.Rproj.user/
+.venv/
+.DS_Store

@@ -16,11 +16,18 @@ library(TFBSTools)
 # ==========================================
 
 DefaultAssay(sc) <- "peaks"
+# Sequence names must also match the underlying indexed fragments; do not rename
+# them here to hide an incompatible genome or assembly.
+unknown_sequences <- setdiff(seqlevels(sc), seqlevels(BSgenome.Btaurus.UCSC.bosTau9))
+if (length(unknown_sequences) > 0) {
+  stop("Sequence names do not match bosTau9; reconcile genome, peaks and fragments: ",
+       paste(unknown_sequences, collapse = ", "))
+}
 
 # Load local JASPAR2024 PFM repository mapping
 message("--> Loading custom JASPAR2024 position frequency matrices...")
 pfm <- readJASPARMatrix(
-  file        = "./jaspar2024.txt", 
+  file        = "./jaspar2024.txt",
   matrixClass = "PFM"
 )
 
@@ -63,32 +70,16 @@ motif_correlations_df <- data.frame(
 )
 
 # Extract dynamic driving motifs (Abs value > 0.3)
-significant_motifs <- motif_correlations_df %>% 
+significant_motifs <- motif_correlations_df %>%
   filter(abs(correlation) > 0.3) %>%
   arrange(desc(abs(correlation)))
 
 write.csv(significant_motifs, "pseudotime_correlated_motifs.csv", row.names = FALSE)
 
 # ==========================================
-# 3. Structural Refactoring of Chromosome Styles
+# 3. Select the assay used for footprinting
 # ==========================================
-message("--> Harmonizing genomic sequence levels between Object and BSgenome reference...")
-
-# NOTE: BSgenome is a read-only locked object. We must modify the Seurat object's 
-# seqlevelsStyle instead of attempting to overwrite BSgenome.Btaurus.UCSC.bosTau9 slots.
-
 DefaultAssay(sc) <- "peaks"
-
-# Force Seurat object coordinates to drop "chr" prefixes and use NCBI style (1:29, X, MT)
-seqlevelsStyle(sc) <- "NCBI"
-
-# If minor scaffolds or unplaced contigs (e.g., Un/Random) remain in your matrix, 
-# stringently subset to standard Bos taurus karyotype elements to prevent Footprint failures
-standard_bovine_chroms <- c(as.character(1:29), "X", "MT")
-current_sc_levels      <- seqlevels(sc)
-valid_sc_levels        <- current_sc_levels[current_sc_levels %in% standard_bovine_chroms]
-
-sc <- keepSeqlevels(sc, value = valid_sc_levels, pruning.mode = "coarse")
 
 # ==========================================
 # 4. Transcription Factor Footprinting & Plotting
@@ -99,10 +90,14 @@ message("--> Initiating high-resolution TF genomic footprinting calculations..."
 # Ensure the motif names exactly match the identifiers within names(pfm)
 target_footprints <- c("Runx1", "SOX4", "Stat5a::Stat5b", "NR3C1")
 
-# Verify matching motifs exist in the database before processing
-available_motifs <- names(pfm)
-valid_footprints <- target_footprints[target_footprints %in% available_motifs || 
-                                      HasMotif(sc, motif = target_footprints)]
+# Footprint expects motif names stored in Signac, not PFM identifier keys.
+available_motifs <- unname(unlist(GetMotifData(sc, assay = "peaks", slot = "motif.names")))
+valid_footprints <- intersect(target_footprints, available_motifs)
+missing_footprints <- setdiff(target_footprints, available_motifs)
+if (length(missing_footprints) > 0) {
+  warning("Requested motif names were not found: ", paste(missing_footprints, collapse = ", "))
+}
+if (length(valid_footprints) == 0) stop("None of the requested footprint motifs are available.")
 
 sc <- Footprint(
   object     = sc,
@@ -113,15 +108,15 @@ sc <- Footprint(
 # 4.2 Diagnostics and Visualizations Plotting
 message("--> Generating diagnostic footprint tracks...")
 
-p_footprint <- PlotFootprint(sc, features = "Runx1", group.by = "group") +
+p_footprint <- PlotFootprint(sc, features = valid_footprints, group.by = "group") +
   theme_classic() +
-  labs(title = "Runx1 Genomic Footprint Track", x = "Distance from Motif Center (bp)")
+  labs(title = "Selected Motif Footprints", x = "Distance from Motif Center (bp)")
 
 ggsave(
-  filename = "Runx1_Footprint_Track.pdf", 
-  plot     = p_footprint, 
-  width    = 6, 
-  height   = 5, 
+  filename = "selected_motif_footprints.pdf",
+  plot     = p_footprint,
+  width    = 6,
+  height   = 5,
   dpi      = 300
 )
 
