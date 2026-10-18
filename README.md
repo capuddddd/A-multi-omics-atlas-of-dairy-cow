@@ -1,39 +1,48 @@
-# Bovine multi-omics analysis scripts
+# Bovine Multi-Omics Analysis Scripts
 
-奶牛组织单核 RNA、单核 ATAC 和 Visium 空间转录组分析代码。
-当前仓库是研究脚本集合：部分文件提供函数，部分依赖已准备好的 Seurat 对象。
-没有随仓库提供原始数据、完整参考文件或验证环境，因此不能据此宣称整套流程可直接复现论文结果。
+Research scripts for single-nucleus RNA sequencing, single-nucleus ATAC sequencing,
+and Visium spatial transcriptomics in bovine tissues.
 
-## 代码导航
+This repository is a collection of analysis scripts. Some files define reusable functions;
+others require prepared Seurat objects in an active R session. Raw data, complete reference
+resources, and a validated environment are not included, so the repository does not yet
+establish end-to-end reproducibility of the study results.
 
-| 文件 | 用途 | 运行方式 |
+## Repository Guide
+
+| File | Purpose | Usage |
 | --- | --- | --- |
-| `snRNA/Merge_Single-Cell_h5_Datasets.r` | 合并 10x H5 数据 | Rscript 命令行 |
-| `snRNA/QC_and_Basic_Analysis.r` | DoubletFinder、去污染、降维、富集 | source 后调用函数 |
-| `snRNA/Celltype_Identification_and_Visualization.r` | 细胞注释与作图 | source 后调用函数 |
-| `snRNA/CellChat_Inter.r` | 细胞通讯比较 | source 后调用函数 |
-| `snRNA/Monocle3_pipeline.r` | 轨迹与拟时序作图 | source 后调用函数 |
-| `snATAC/Multi-Sample_scATAC-seq_Peak_Call.r` | 共识 peaks 和片段计数 | 配置输入后运行 |
-| `snATAC/QC_basic_analysis.r` | ATAC QC、整合、基因活性 | source 后调用函数 |
-| `snATAC/integration.r` | RNA 到 ATAC 标签转移 | 配置环境变量后运行 |
-| `snATAC/Findmotif.r` | motif、chromVAR、footprint | 依赖会话中的 `sc` 和 bosTau9 匹配检查 |
-| `snATAC/heatmap_RNA&ATAC.r` | TF 活性与表达热图 | 依赖会话中的 `sc` |
-| `ST/basic_analysis.py` | Visium QC、聚类、空间统计 | Python 命令行 |
-| `ST/tangram_single.py` | 单细胞到空间映射 | Python 命令行 |
-| `snATAC/scenicplus.py` | SCENIC+ 旧接口示例 | 尚未验证，见限制说明 |
+| `snRNA/Merge_Single-Cell_h5_Datasets.r` | Merge 10x H5 datasets | Run with `Rscript` |
+| `snRNA/QC_and_Basic_Analysis.r` | DoubletFinder, decontamination, dimensionality reduction, and enrichment | Source the script and call its functions |
+| `snRNA/Celltype_Identification_and_Visualization.r` | Cell-type annotation and visualization | Source the script and call its functions |
+| `snRNA/CellChat_Inter.r` | Compare cell-cell communication | Source the script and call its functions |
+| `snRNA/Monocle3_pipeline.r` | Trajectory analysis and pseudotime plots | Source the script and call its functions |
+| `snATAC/Multi-Sample_scATAC-seq_Peak_Call.r` | Construct consensus peaks and quantify fragments | Configure inputs before running |
+| `snATAC/QC_basic_analysis.r` | ATAC QC, integration, and gene activity | Source the script and call its functions |
+| `snATAC/integration.r` | Transfer labels from RNA to ATAC data | Configure environment variables before running |
+| `snATAC/Findmotif.r` | Motif analysis, chromVAR, and footprinting | Requires an active `sc` object and sequence names matching bosTau9 |
+| `snATAC/heatmap_RNA&ATAC.r` | TF activity and expression heatmaps | Requires an active `sc` object |
+| `ST/basic_analysis.py` | Visium QC, clustering, and spatial statistics | Run from the Python command line |
+| `ST/tangram_single.py` | Map single cells to spatial spots | Run from the Python command line |
+| `snATAC/scenicplus.py` | Legacy SCENIC+ API example | Unvalidated; see the known limitations |
 
-## 环境
+## Environment
 
-空间分析依赖 `scanpy`、`squidpy`、`matplotlib`、`igraph`、`leidenalg`；
-映射额外依赖 `tangram-sc` 和 `torch`。SCENIC+ 应使用单独环境，并按其对应版本的官方教程准备输入。
-R 依赖列表见 [DEPENDENCIES.md](docs/DEPENDENCIES.md)。
-尚无实际运行环境的版本锁定文件；请在成功运行后保存 `pip freeze` 和 R 的 `sessionInfo()`，
-不要把未经测试的版本列表当作可复现环境。
+Spatial analysis requires `scanpy`, `squidpy`, `matplotlib`, `igraph`, and `leidenalg`.
+Mapping additionally requires `tangram-sc` and `torch`. Use a separate environment for
+SCENIC+ and prepare its inputs according to the official tutorial for the selected version.
+See [DEPENDENCIES.md](docs/DEPENDENCIES.md) for the R package inventory.
 
-## 运行示例
+No dependency lockfile from a successfully validated analysis environment is available.
+After a successful run, record `pip freeze` and R's `sessionInfo()`. An untested list of
+package versions should not be presented as a reproducible environment.
 
-从仓库根目录运行；输入路径相对于启动命令时的目录解析，`--work_dir` 是输出目录。
-输出使用固定文件名，重复运行请使用新的目录，以保留之前结果。
+## Running the Scripts
+
+Run the following commands from the repository root. Input paths are resolved relative
+to the directory from which the command is invoked; `--work_dir` specifies the output
+directory. Outputs use fixed filenames, so use a new output directory for each run to
+preserve previous results.
 
 ```bash
 Rscript snRNA/Merge_Single-Cell_h5_Datasets.r data/h5 results/merged.rds
@@ -47,12 +56,16 @@ python3 ST/tangram_single.py \
   --annotation_key celltype --work_dir results/tangram/sample1 --seed 0
 ```
 
-一个 Visium library 时自动推断 ID；多个时使用 `--library_id` 明确选择。
-空间预处理保存 `layers["counts"]` 和 log-normalized `raw`；差异表达使用 `raw`。
-Tangram 优先读取 counts 层，保存映射矩阵、CSV 和 `obsm["tangram_ct_pred"]`。
-这些预测是映射权重，不应直接解释为绝对细胞数。
+The Visium library ID is inferred when exactly one library is present. If multiple
+libraries are present, select one explicitly with `--library_id`.
 
-ATAC 输入通过环境变量配置：
+Spatial preprocessing preserves counts in `layers["counts"]` and log-normalized expression
+in `raw`; differential expression uses `raw`. Tangram preferentially reads the counts
+layer and saves the mapping matrix, a CSV weight table, and `obsm["tangram_ct_pred"]`.
+These predictions are mapping weights and should not be interpreted directly as absolute
+cell counts.
+
+Configure ATAC inputs through environment variables:
 
 ```bash
 export ATLAS_ATAC_DATA_DIR="$PWD/data/atac"
@@ -60,17 +73,20 @@ export ATLAS_RNA_REFERENCE="$PWD/data/reference.rds"
 export ATLAS_ATAC_QUERY="$PWD/data/query.rds"
 ```
 
-Peak 脚本中的 `DATA_PATHS`、`SAMPLE_IDS` 仍需按实际样本配置。
-基因组组装、染色体命名、注释与片段文件必须一致。
+The peak-processing script's `DATA_PATHS` and `SAMPLE_IDS` must still be configured for
+your samples. Genome assembly, chromosome naming, annotation, and fragment coordinates
+must be consistent.
 
-## 验证和贡献
+## Validation and Contributions
 
 ```bash
 python3 -m unittest discover -s tests -v
 python3 -m compileall -q ST snATAC
 ```
 
-单元测试验证文件路径与 library 选择，不代表科学分析已验证。
-修改 QC、物种注释、归一化、差异分析或模型参数时，必须用代表性数据比较前后结果。
-更多未解决的问题见 [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md)。
-许可证和数据来源状态见 [DATA_AND_LICENSE.md](docs/DATA_AND_LICENSE.md)。
+The unit tests check filesystem handling and library selection; they do not validate
+the scientific analysis. Changes to QC, species annotation, normalization, differential
+analysis, or model parameters require comparisons on representative datasets.
+
+See [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) for unresolved issues and
+[DATA_AND_LICENSE.md](docs/DATA_AND_LICENSE.md) for data provenance and licensing status.

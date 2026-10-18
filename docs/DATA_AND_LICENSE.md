@@ -1,11 +1,16 @@
-# 数据与许可证状态
+# Data Provenance and Licensing Status
 
-原仓库未提供代码 LICENSE，无法据此确定可授予第三方的开源使用范围。
-本次保留已有作者信息，没有代替作者选择许可证。
+The original repository did not include a code LICENSE file. The terms under which
+third parties may reuse the code therefore remain unspecified. Existing author
+attributions have been preserved; no license has been selected on the author's behalf.
 
-发布前应记录每个数据集的来源、访问号、样本对应关系、物种与组装版本、参考文件版本、
-访问限制及允许的用途。JASPAR、cisTarget、Ensembl 等资源也应记录来源及适用条款。
-本说明是缺失项清单，不是法律合规认证。
+Before publication, document the source and accession number of each dataset, sample
+mapping, species and genome assembly, reference resource versions, access restrictions,
+and permitted uses. Also record the sources and applicable terms for resources such as
+JASPAR, cisTarget, and Ensembl.
 
-不要提交原始测序数据、受限样本信息、凭据或本地环境文件。
-大型矩阵和结果存储在独立的数据/制品位置，通过文档说明获取方法。
+This document identifies missing information; it is not a certification of legal compliance.
+
+Do not commit raw sequencing data, restricted sample information, credentials, or local
+environment files. Store large matrices and analysis outputs in a separate data or
+artifact location and document how to obtain them.

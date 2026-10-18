@@ -1,6 +1,7 @@
-# 依赖清单
+# Dependency Inventory
 
-以下来自脚本中的 library 声明，不是锁定环境。
+The following packages are collected from `library()` declarations in the R scripts.
+This is an inventory, not a locked environment.
 
 - `BSgenome.Btaurus.UCSC.bosTau9`
 - `CellChat`
@@ -37,5 +38,7 @@
 - `scRNAtoolVis`
 - `tidyverse`
 
-还存在命名空间调用（如 igraph、mgcv、grid）及系统工具依赖。
-安装渠道和版本必须按实际成功运行的环境记录；本次未安装或验证这些依赖。
+The scripts also use namespace-qualified calls (for example, `igraph`, `mgcv`, and
+`grid`) and require system tools. Record installation sources and versions from an
+environment in which the analysis has run successfully. These dependencies were
+not installed or validated during the repository cleanup.
